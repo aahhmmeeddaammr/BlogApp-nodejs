@@ -6,7 +6,7 @@ import blogController from "./modules/blog/blog.controller.js";
 import { configDotenv } from "dotenv";
 export function bootstrap() {
   const app = express();
-  const port = 3000;
+  const port = 8000;
   configDotenv();
 
   app.use(express.json());
