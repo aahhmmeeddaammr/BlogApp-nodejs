@@ -6,13 +6,13 @@ import blogController from "./modules/blog/blog.controller.js";
 import { configDotenv } from "dotenv";
 export function bootstrap() {
   const app = express();
-  const port = 8000;
-  configDotenv();
+  const port = process.env.PORT || 3000;
+  const host = "0.0.0.0";
 
+  configDotenv();
   app.use(express.json());
 
   // DB Connection
-
   establishDBConnection();
 
   // ========================== End Points ==========================
@@ -27,5 +27,8 @@ export function bootstrap() {
   app.all("{/*dummy}", (req, res, next) => {
     return res.status(404).json({ message: "In-valid url or method" });
   });
-  app.listen(port, () => console.log(`listening on http://localhost:${port}`));
+
+  app.listen(port, host, () => {
+    console.log(`listening on http://${host}:${port}`);
+  });
 }
