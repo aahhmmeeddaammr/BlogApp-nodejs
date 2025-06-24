@@ -1,8 +1,16 @@
 import { Router } from "express";
-import { checkRequestFields } from "../../Helpers/checkrequest.js";
 import authService from "./auth.service.js";
 
 const router = Router();
+const checkRequestFields = (feilds, reqBody) => {
+  const resultFields = [];
+  for (let i = 0; i < feilds.length; i++) {
+    if (reqBody[feilds[i]] === undefined) {
+      resultFields.push(feilds[i]);
+    }
+  }
+  return resultFields;
+};
 
 const validateLoginRequest = (req, res, next) => {
   const requiredField = ["email", "password"];
