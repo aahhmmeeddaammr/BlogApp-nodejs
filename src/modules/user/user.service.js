@@ -1,7 +1,7 @@
 import { connection } from "../../db/connection.db.js";
 
 export const list = (req, res, next) => {
-  const getAllUsersQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , u_createdAt as createdAt , u_updatedAt as updatedAt FROM users`;
+  const getAllUsersQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users`;
   connection.execute(getAllUsersQuery, (error, data) => {
     if (error) {
       return res.status(500).json({ message: "Internal Server Error", error });
@@ -13,7 +13,7 @@ export const getById = (req, res, next) => {
   if (isNaN(req.params.id)) {
     return res.status(400).json({ message: "in-valid Id" });
   }
-  const getUserQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , u_createdAt as createdAt , u_updatedAt as updatedAt FROM users where u_id = ?`;
+  const getUserQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users where u_id = ?`;
   connection.execute(getUserQuery, [req.params.id], (error, data) => {
     if (error) {
       return res.status(500).json({ message: "Internal Server Error", error });
@@ -31,7 +31,7 @@ export const search = (req, res, next) => {
   if (!name) {
     return res.status(400).json({ message: "name param is required" });
   }
-  const sql = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , u_createdAt as createdAt , u_updatedAt as updatedAt FROM users having fullName like ?`;
+  const sql = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users having fullName like ?`;
   connection.execute(sql, [`%${name}%`], (error, data) => {
     if (error) {
       return res.status(500).json({ message: "Internal Server Error", error });
