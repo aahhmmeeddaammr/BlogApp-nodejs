@@ -1,46 +1,49 @@
-import { connection } from "../../db/connection.db.js";
+// import { connection } from "../../db/connection.db.js";
 import jwt from "jsonwebtoken";
-const login = (req, res, next) => {
+import { UserModel } from "../../db/models/User.model.js";
+const login = async (req, res, next) => {
   const { email, password } = req.body;
-  const isExistQuery = "SELECT * from users where u_email=? and u_password=?";
-  connection.execute(isExistQuery, [email, password], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
-    }
-    if (!data.length) {
+  try {
+    const user = await UserModel.findOne({
+      where: {
+        email,
+        password,
+      },
+    });
+    if (!user) {
       return res.status(404).json({ message: "In-valid Email or Password" });
     }
     const payload = {
-      id: data[0].u_id,
-      name: data[0].u_firstName,
+      id: user.id,
+      name: user.fullName,
     };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { algorithm: "HS256", expiresIn: "1h" });
     return res.json({ message: "user Login successfully", token });
-  });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error", error });
+  }
 };
 
-const signup = (req, res, next) => {
-  const { firstName, middleName, lastName, password, confirmPassword, email } = req.body;
-  console.log({ firstName, middleName, lastName, password, confirmPassword, email });
-
+const signup = async (req, res, next) => {
+  const { fullName, password, confirmPassword, email } = req.body;
   if (password !== confirmPassword) {
     return res.status(400).json({ message: "Password mis match with confirm password" });
   }
-  const isExistQuery = "SELECT * from users where u_email=?";
-  connection.execute(isExistQuery, [email], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
-    }
-    if (data.length) {
-      return res.status(409).json({ message: "User already exist" });
-    }
-    const insertionQuery = `INSERT INTO users(u_firstName , u_middleName,u_lastName,u_password,u_email) values(?,?,?,?,?)`;
-    connection.execute(insertionQuery, [firstName, middleName, lastName, password, email], (error, data) => {
-      if (error) {
-        return res.status(500).json({ message: "Internal Server Error", error });
-      }
-      return res.status(201).json({ data });
-    });
+  const checkUser = await UserModel.findOne({
+    where: {
+      email,
+    },
   });
+  if (checkUser) {
+    return res.status(409).json({ message: "User already exist" });
+  }
+  try {
+    const user = await UserModel.create({ fullName, password, email });
+    const userData = user.toJSON();
+    delete userData.password;
+    return res.status(201).json({ message: "done", user: userData });
+  } catch (error) {
+    res.status(500).json({ error });
+  }
 };
 export default { login, signup };

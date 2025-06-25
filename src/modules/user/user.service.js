@@ -1,67 +1,82 @@
-import { connection } from "../../db/connection.db.js";
+import { Op } from "sequelize";
+import { UserModel } from "../../db/models/User.model.js";
 
-export const list = (req, res, next) => {
-  const getAllUsersQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users`;
-  connection.execute(getAllUsersQuery, (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
-    }
+export const list = async (req, res, next) => {
+  let page = req.query.page ? parseInt(req.query.page) : 1;
+  const size = req.query.limit ? parseInt(req.query.limit) : 5;
+  page = (page - 1) * size;
+  console.log({ page });
+
+  try {
+    const data = await UserModel.findAndCountAll({
+      attributes: { exclude: ["password"] },
+      limit: size,
+      offset: page,
+    });
+    data.totalPages = Math.ceil(data.count / size);
     return res.json({ message: "done", data });
-  });
+  } catch (error) {
+    return res.status(500).json({ message: "internal server error", error });
+  }
 };
-export const getById = (req, res, next) => {
+export const getById = async (req, res, next) => {
   if (isNaN(req.params.id)) {
     return res.status(400).json({ message: "in-valid Id" });
   }
-  const getUserQuery = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users where u_id = ?`;
-  connection.execute(getUserQuery, [req.params.id], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
-    }
-    if (!data.length) {
+  try {
+    const user = await UserModel.findByPk(req.params.id);
+    if (!user) {
       return res.status(404).json({ message: "in-valid profile Id" });
     }
-    return res.json({ message: "done", data: data[0] });
-  });
+    return res.json({ message: "done", data: user });
+  } catch (error) {
+    return res.status(500).json({ message: "error", error: error.message });
+  }
 };
-export const search = (req, res, next) => {
-  console.log("asckmlks");
-
+export const search = async (req, res, next) => {
+  let page = req.query.page ? parseInt(req.query.page) : 1;
+  const size = req.query.limit ? parseInt(req.query.limit) : 5;
+  page = (page - 1) * size;
+  console.log({ page });
   const { name } = req.query;
   if (!name) {
     return res.status(400).json({ message: "name param is required" });
   }
-  const sql = `SELECT u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email ,u_DOB as dateOfBirth , u_gender as gender , createdAt , updatedAt  FROM users having fullName like ?`;
-  connection.execute(sql, [`%${name}%`], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
-    }
-    return res.json({ message: "done", data });
-  });
+  try {
+    const users = await UserModel.findAndCountAll({
+      attributes: { exclude: ["password"] },
+      limit: size,
+      offset: page,
+      where: {
+        [Op.or]: [{ firstName: { [Op.substring]: name } }, { middleName: { [Op.substring]: name } }, { lastName: { [Op.substring]: name } }],
+      },
+    });
+    return res.json({ message: "done", data: users });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error", error });
+  }
 };
-export const deleteUser = (req, res, next) => {
+export const deleteUser = async (req, res, next) => {
   const { id } = req.params;
+  const loggedInUserId = req.user.id;
   if (isNaN(id)) {
     return res.status(400).json({ message: "in-valid Id" });
   }
-  const select = `SELECT * from users where u_id = ?`;
-  connection.execute(select, [id], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal Server Error", error });
+  if (parseInt(id) !== loggedInUserId) {
+    return res.status(403).json({ message: "You are not authorized to update this profile" });
+  }
+  try {
+    const user = await UserModel.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: "in-valid account Id" });
     }
-    if (!data.length) {
-      return res.status(404).json({ message: "in-valid profile Id" });
-    }
-    const getUserQuery = `DELETE FROM users where u_id = ?`;
-    connection.execute(getUserQuery, [id], (error, data) => {
-      if (error) {
-        return res.status(500).json({ message: "Internal Server Error", error });
-      }
-      return res.json({ message: "done", data });
-    });
-  });
+    user.destroy();
+    return res.json({ message: "user deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
 };
-export const updateUser = (req, res, next) => {
+export const updateUser = async (req, res, next) => {
   const loggedInUserId = req.user.id;
   const { id } = req.params;
   const { dateOfBirth, firstName, middleName, secondName, gender } = req.body;
@@ -73,43 +88,14 @@ export const updateUser = (req, res, next) => {
   if (parseInt(id) !== loggedInUserId) {
     return res.status(403).json({ message: "You are not authorized to update this profile" });
   }
-
-  const updateFields = [];
-  const updateValues = [];
-
-  if (firstName) {
-    updateFields.push("u_firstName = ?");
-    updateValues.push(firstName.trim());
-  }
-  if (middleName) {
-    updateFields.push("u_middleName = ?");
-    updateValues.push(middleName.trim());
-  }
-  if (secondName) {
-    updateFields.push("u_lastName = ?");
-    updateValues.push(secondName.trim());
-  }
-  if (gender) {
-    updateFields.push("u_gender = ?");
-    updateValues.push(gender.trim());
-  }
-  if (dateOfBirth) {
-    updateFields.push("u_DOB = ?");
-    updateValues.push(dateOfBirth);
-  }
-
-  if (!updateFields.length) {
-    return res.status(400).json({ message: "No fields provided to update" });
-  }
-
-  const updateQuery = `UPDATE users SET ${updateFields.join(", ")} WHERE u_id = ?`;
-  updateValues.push(loggedInUserId); // add ID to end for WHERE
-
-  connection.execute(updateQuery, updateValues, (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: "Internal server error", error: err });
+  try {
+    const user = await UserModel.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: "in-valid account Id" });
     }
-
-    return res.status(200).json({ message: "User profile updated successfully" });
-  });
+    user.update({ dateOfBirth, firstName, middleName, secondName, gender });
+    return res.json({ message: "user updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
 };

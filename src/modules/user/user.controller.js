@@ -1,6 +1,5 @@
 import { Router } from "express";
 import * as userService from "./user.service.js";
-import { connection } from "../../db/connection.db.js";
 import { verifyToken } from "../../middlewares/verifiytoken.middleware.js";
 const router = Router();
 

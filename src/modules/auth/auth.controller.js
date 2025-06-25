@@ -1,16 +1,8 @@
 import { Router } from "express";
 import authService from "./auth.service.js";
+import { checkRequestFields } from "../../utils/validateFields.js";
 
 const router = Router();
-const checkRequestFields = (feilds, reqBody) => {
-  const resultFields = [];
-  for (let i = 0; i < feilds.length; i++) {
-    if (reqBody[feilds[i]] === undefined) {
-      resultFields.push(feilds[i]);
-    }
-  }
-  return resultFields;
-};
 
 const validateLoginRequest = (req, res, next) => {
   const requiredField = ["email", "password"];
@@ -27,7 +19,7 @@ const validateLoginRequest = (req, res, next) => {
   next();
 };
 const validateSignUpRequest = (req, res, next) => {
-  const required = ["firstName", "middleName", "lastName", "password", "confirmPassword", "email"];
+  const required = ["fullName", "password", "confirmPassword", "email"];
   const result = checkRequestFields(required, req.body);
   if (result.length) {
     return res.status(400).json({ errors: result.map((field) => `${field} field is required`) });

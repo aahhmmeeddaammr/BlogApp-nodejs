@@ -1,126 +1,141 @@
-import { connection } from "../../db/connection.db.js";
+import { BlogModel } from "../../db/models/Blog.model.js";
+import { UserModel } from "../../db/models/User.model.js";
 
-export const createBlog = (req, res, next) => {
-  const { title, content } = req.body;
-  const autherId = req.user.id;
-  const checkQuery = `SELECT * FROM users WHERE u_id = ?`;
-  connection.execute(checkQuery, [autherId], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal server Error", error });
-    }
-    if (!data.length) {
-      return res.status(404).json({ message: "in-valid author id" });
-    }
-    const insertionQuery = `INSERT INTO blogs (b_title , b_content , b_author_id) values(?,?,?)`;
-    connection.execute(insertionQuery, [title, content, autherId], (error, data) => {
-      if (error) {
-        return res.status(500).json({ message: "Internal server Error", error });
-      }
-      return res.json({ message: "done", data });
+export const createBlog = async (req, res, next) => {
+  try {
+    const { title, content } = req.body;
+    const authorId = req.user.id;
+
+    const blog = await BlogModel.create({
+      title,
+      content,
+      b_author_id: authorId,
     });
-  });
-};
-export const listBlogs = (req, res, next) => {
-  const sqlQuery = `SELECT blogs.* , u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email 
-                    FROM users inner join blogs on users.u_id = blogs.b_author_id`;
-  connection.execute(sqlQuery, (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal server Error", error });
-    }
-    const formattedData = data.map((row) => {
-      const { id, fullName, email, ...blogData } = row;
-      return {
-        ...blogData,
-        author: {
-          id,
-          fullName,
-          email,
-        },
-      };
-    });
-    return res.json({ message: "done", data: formattedData });
-  });
-};
-export const getBlog = (req, res, next) => {
-  const { id } = req.params;
-  if (!id || isNaN(id)) {
-    return res.status(400).json({ message: "In-valid blog id" });
+
+    return res.status(201).json({ message: "Blog created successfully", data: blog });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error });
   }
-  const sqlQuery = `SELECT blogs.* , u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email 
-                    FROM users inner join blogs on users.u_id = blogs.b_author_id and b_id=?
-                    `;
-  connection.execute(sqlQuery, [id], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal server Error", error });
-    }
-    if (!data.length) {
-      return res.status(404).json({ message: "In-valid blog id" });
-    }
-    const formattedData = data.map((row) => {
-      const { id, fullName, email, ...blogData } = row;
+};
+
+export const listBlogs = async (req, res, next) => {
+  try {
+    const blogs = await BlogModel.findAll({
+      include: {
+        model: UserModel,
+        attributes: ["email", "firstName", "lastName", "middleName", "id"],
+      },
+    });
+
+    const formattedData = blogs.map((blog) => {
+      console.log({ blog });
+
+      const { id, title, content, createdAt, updatedAt, user } = blog;
       return {
-        ...blogData,
-        author: {
-          id,
-          fullName,
-          email,
-        },
+        id,
+        title,
+        content,
+        createdAt,
+        updatedAt,
+        author: user,
       };
     });
+
     return res.json({ message: "done", data: formattedData });
-  });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error });
+  }
 };
-export const deleteBlog = (req, res, next) => {
+
+export const getBlog = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ message: "Invalid blog id" });
+  }
+
+  try {
+    const blog = await BlogModel.findByPk(id, {
+      include: {
+        model: UserModel,
+        attributes: ["email", "firstName", "lastName", "middleName", "id"],
+      },
+    });
+
+    if (!blog) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+
+    const { title, content, createdAt, updatedAt, user } = blog;
+
+    return res.json({
+      message: "done",
+      data: {
+        id: blog.id,
+        title,
+        content,
+        createdAt,
+        updatedAt,
+        author: user,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+export const deleteBlog = async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user.id;
-  const checkQuery = `SELECT * FROM blogs where b_id=?`;
+
   if (!id || isNaN(id)) {
     return res.status(400).json({ message: "Invalid blog ID" });
   }
 
-  connection.execute(checkQuery, [id], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "internal server error", error });
-    }
-    if (!data.length) {
-      return res.status(404).json({ message: "in-valid blog id" });
-    }
-    if (data[0].b_author_id !== userId) {
-      return res.status(401).json({ message: "unauthorized to delete this blog" });
+  try {
+    const blog = await BlogModel.findByPk(id);
+
+    if (!blog) {
+      return res.status(404).json({ message: "Blog not found" });
     }
 
-    const deleteQuery = `DELETE FROM blogs WHERE b_id=?`;
-    connection.execute(deleteQuery, [id], (error, data) => {
-      if (error) {
-        return res.status(500).json({ message: "internal server error", error });
-      }
-      return res.json({ message: "blog deleted successfully", data });
-    });
-  });
-};
-export const getBlogsForUser = (req, res, next) => {
-  const authorId = req.user.id;
-  const sqlQuery = `SELECT blogs.* , u_id as id , concat(u_firstName ,' ', u_middleName ,' ',u_lastName ,' ') as fullName , u_email as email 
-                    FROM users inner join blogs on users.u_id = blogs.b_author_id and users.u_id = ?`;
-  connection.execute(sqlQuery, [authorId], (error, data) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal server Error", error });
+    if (blog.b_author_id !== userId) {
+      return res.status(403).json({ message: "Unauthorized to delete this blog" });
     }
-    const formattedData = data.map((row) => {
-      const { id, fullName, email, ...blogData } = row;
-      return {
-        ...blogData,
-        author: {
-          id,
-          fullName,
-          email,
-        },
-      };
-    });
-    return res.json({ message: "done", data: formattedData });
-  });
+
+    await blog.destroy();
+
+    return res.json({ message: "Blog deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error });
+  }
 };
-export const updateBlog = (req, res) => {
+export const getBlogsForUser = async (req, res, next) => {
+  const authorId = req.user.id;
+
+  try {
+    const blogs = await BlogModel.findAll({
+      where: { b_author_id: authorId },
+      include: {
+        model: UserModel,
+        attributes: ["email", "firstName", "lastName", "middleName", "id"],
+      },
+    });
+
+    const formattedData = blogs.map((blog) => ({
+      id: blog.id,
+      title: blog.title,
+      content: blog.content,
+      createdAt: blog.createdAt,
+      updatedAt: blog.updatedAt,
+      author: blog.user,
+    }));
+
+    return res.json({ message: "done", data: formattedData });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error });
+  }
+};
+export const updateBlog = async (req, res, next) => {
   const { id } = req.params;
   const { title, content } = req.body;
   const loggedInUserId = req.user.id;
@@ -129,52 +144,37 @@ export const updateBlog = (req, res) => {
     return res.status(400).json({ message: "Invalid blog ID" });
   }
 
-  const checkQuery = `SELECT * FROM blogs WHERE b_id = ?`;
-  connection.execute(checkQuery, [id], (error, results) => {
-    if (error) {
-      return res.status(500).json({ message: "Internal server error", error });
-    }
+  try {
+    const blog = await BlogModel.findByPk(id);
 
-    const blog = results[0];
     if (!blog) {
       return res.status(404).json({ message: "Blog not found" });
     }
 
     if (blog.b_author_id !== loggedInUserId) {
-      return res.status(403).json({ message: "You are not authorized to update this blog" });
+      return res.status(403).json({ message: "Unauthorized to update this blog" });
     }
 
-    const updatedFields = [];
-    const updateValues = [];
+    let updated = false;
 
-    const updatedTitle = title?.trim() || blog.b_title;
-    if (updatedTitle !== blog.b_title) {
-      updatedFields.push("b_title = ?");
-      updateValues.push(updatedTitle);
+    if (title && title.trim() !== blog.b_title) {
+      blog.title = title.trim();
+      updated = true;
     }
 
-    const updatedContent = content?.trim() || blog.b_content;
-    if (updatedContent !== blog.b_content) {
-      updatedFields.push("b_content = ?");
-      updateValues.push(updatedContent);
+    if (content && content.trim() !== blog.b_content) {
+      blog.content = content.trim();
+      updated = true;
     }
 
-    if (!updatedFields.length) {
+    if (!updated) {
       return res.status(400).json({ message: "No changes detected in blog data" });
     }
 
-    const updatedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-    updatedFields.push("b_updatedAt = ?");
-    updateValues.push(updatedAt);
+    await blog.save();
 
-    const updateQuery = `UPDATE blogs SET ${updatedFields.join(", ")} WHERE b_id = ?`;
-    updateValues.push(id);
-
-    connection.execute(updateQuery, updateValues, (error, result) => {
-      if (error) {
-        return res.status(500).json({ message: "Internal server error", error });
-      }
-      return res.status(200).json({ message: "Blog updated successfully" });
-    });
-  });
+    return res.json({ message: "Blog updated successfully", data: blog });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error", error });
+  }
 };

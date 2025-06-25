@@ -1,19 +1,27 @@
-import mysql2 from "mysql2";
+import { Sequelize } from "sequelize";
 
-export const connection = mysql2.createConnection({
-  host: "bvjvcqclbz3tausg6vhv-mysql.services.clever-cloud.com",
-  user: "uhihgea8kpo9khpb",
-  password: "13fG15O6KTgZvqk5V5TT",
-  database: "bvjvcqclbz3tausg6vhv",
-  port: 3306,
+export const sequelize = new Sequelize("blogApp", "root", "Ahmed123", {
+  host: "localhost",
+  dialect: "mysql",
+  port: "3306",
+  logging: console.log,
 });
 
-export const establishDBConnection = () => {
-  connection.connect((err) => {
-    if (err) {
-      console.error("Database connection failed:", err.message);
-    } else {
-      console.log("Database connected successfully.");
-    }
-  });
+export const establishDBConnection = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log("Connection has been established successfully.");
+  } catch (error) {
+    console.error("Unable to connect to the database:", error);
+  }
+};
+
+export const syncDBConnection = async () => {
+  try {
+    const result = await sequelize.sync({ alter: false, force: false });
+    console.log({ result });
+    console.log("Success to sync ");
+  } catch {
+    console.log("Falied to connection");
+  }
 };
