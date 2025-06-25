@@ -1,7 +1,7 @@
 import { Sequelize } from "sequelize";
 
-export const sequelize = new Sequelize("blogApp", "root", "Ahmed123", {
-  host: "localhost",
+export const sequelize = new Sequelize("bvjvcqclbz3tausg6vhv", "uhihgea8kpo9khpb", "13fG15O6KTgZvqk5V5TT", {
+  host: "bvjvcqclbz3tausg6vhv-mysql.services.clever-cloud.com",
   dialect: "mysql",
   port: "3306",
   logging: console.log,
