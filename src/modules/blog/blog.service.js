@@ -1,5 +1,6 @@
 import { BlogModel } from "../../db/models/Blog.model.js";
 import { UserModel } from "../../db/models/User.model.js";
+import { paginate } from "../../utils/paginate.js";
 
 export const createBlog = async (req, res, next) => {
   try {
@@ -19,31 +20,24 @@ export const createBlog = async (req, res, next) => {
 };
 
 export const listBlogs = async (req, res, next) => {
+  const { limit, offset, currentPage } = paginate(req.query);
+
   try {
-    const blogs = await BlogModel.findAll({
+    const blogs = await BlogModel.findAndCountAll({
       include: {
         model: UserModel,
         attributes: ["email", "firstName", "lastName", "middleName", "id"],
       },
+      limit,
+      offset,
     });
-
-    const formattedData = blogs.map((blog) => {
-      console.log({ blog });
-
-      const { id, title, content, createdAt, updatedAt, user } = blog;
-      return {
-        id,
-        title,
-        content,
-        createdAt,
-        updatedAt,
-        author: user,
-      };
-    });
-
-    return res.json({ message: "done", data: formattedData });
+    const data = {};
+    data.totalPages = Math.ceil(data.count / limit);
+    data.currentPage = currentPage;
+    data.data = blogs;
+    return res.json({ message: "done", data });
   } catch (error) {
-    return res.status(500).json({ message: "Internal server error", error });
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -111,26 +105,26 @@ export const deleteBlog = async (req, res, next) => {
 };
 export const getBlogsForUser = async (req, res, next) => {
   const authorId = req.user.id;
+  const { limit, offset, currentPage } = paginate(req.query);
 
   try {
-    const blogs = await BlogModel.findAll({
+    const blogs = await BlogModel.findAndCountAll({
       where: { b_author_id: authorId },
       include: {
         model: UserModel,
         attributes: ["email", "firstName", "lastName", "middleName", "id"],
       },
+      limit,
+      offset,
     });
+    const data = {};
+    data.totalPages = Math.ceil(data.count / limit);
+    data.currentPage = currentPage;
+    data.data = blogs;
+    data.totalPages = Math.ceil(data.count / size);
+    data.currentPage = currentPage;
 
-    const formattedData = blogs.map((blog) => ({
-      id: blog.id,
-      title: blog.title,
-      content: blog.content,
-      createdAt: blog.createdAt,
-      updatedAt: blog.updatedAt,
-      author: blog.user,
-    }));
-
-    return res.json({ message: "done", data: formattedData });
+    return res.json({ message: "done", data });
   } catch (error) {
     return res.status(500).json({ message: "Internal server error", error });
   }

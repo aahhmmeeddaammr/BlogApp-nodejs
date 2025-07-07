@@ -1,19 +1,19 @@
 import { Op } from "sequelize";
 import { UserModel } from "../../db/models/User.model.js";
+import { paginate } from "../../utils/paginate.js";
 
 export const list = async (req, res, next) => {
-  let page = req.query.page ? parseInt(req.query.page) : 1;
-  const size = req.query.limit ? parseInt(req.query.limit) : 5;
-  page = (page - 1) * size;
-  console.log({ page });
-
+  const { limit, offset, currentPage } = paginate(req.query);
   try {
-    const data = await UserModel.findAndCountAll({
+    const users = await UserModel.findAndCountAll({
       attributes: { exclude: ["password"] },
-      limit: size,
-      offset: page,
+      limit,
+      offset,
     });
-    data.totalPages = Math.ceil(data.count / size);
+    const data = {};
+    data.totalPages = Math.ceil(data.count / limit);
+    data.currentPage = currentPage;
+    data.data = users;
     return res.json({ message: "done", data });
   } catch (error) {
     return res.status(500).json({ message: "internal server error", error });
@@ -34,10 +34,8 @@ export const getById = async (req, res, next) => {
   }
 };
 export const search = async (req, res, next) => {
-  let page = req.query.page ? parseInt(req.query.page) : 1;
-  const size = req.query.limit ? parseInt(req.query.limit) : 5;
-  page = (page - 1) * size;
-  console.log({ page });
+  const { limit, offset, currentPage } = paginate(req.query);
+
   const { name } = req.query;
   if (!name) {
     return res.status(400).json({ message: "name param is required" });
@@ -45,13 +43,17 @@ export const search = async (req, res, next) => {
   try {
     const users = await UserModel.findAndCountAll({
       attributes: { exclude: ["password"] },
-      limit: size,
-      offset: page,
+      limit,
+      offset,
       where: {
         [Op.or]: [{ firstName: { [Op.substring]: name } }, { middleName: { [Op.substring]: name } }, { lastName: { [Op.substring]: name } }],
       },
     });
-    return res.json({ message: "done", data: users });
+    const data = {};
+    data.totalPages = Math.ceil(data.count / limit);
+    data.currentPage = currentPage;
+    data.data = users;
+    return res.json({ message: "done", data });
   } catch (error) {
     return res.status(500).json({ message: "Internal Server Error", error });
   }

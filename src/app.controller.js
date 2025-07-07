@@ -21,13 +21,10 @@ export async function bootstrap() {
     res.json({ message: "welcome in blog app api" });
   });
 
-  app.use("/auth", authController);
-  app.use("/user", userController);
-  app.use("/blog", blogController);
+  app.use("/api/v1/auth", authController);
+  app.use("/api/v1/user", userController);
+  app.use("/api/v1/blog", blogController);
 
-  app.all("{/*dummy}", (req, res, next) => {
-    return res.status(404).json({ message: "In-valid url or method" });
-  });
   app.listen(port, host, () => {
     console.log(`listening on http://${host}:${port}`);
   });
